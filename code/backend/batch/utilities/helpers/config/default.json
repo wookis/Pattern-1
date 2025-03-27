@@ -8,7 +8,7 @@
     "use_on_your_data_format": true,
     "enable_post_answering_prompt": false,
     "ai_assistant_type": "default",
-    "enable_content_safety": true,
+    "enable_content_safety": false,
     "conversational_flow": "${CONVERSATION_FLOW}"
   },
   "example": {

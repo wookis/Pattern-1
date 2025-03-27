@@ -1,5 +1,6 @@
 using './main.bicep'
 
+param appName = readEnvironmentVariable('APP_NAME', 'app-50')
 param environmentName = readEnvironmentVariable('AZURE_ENV_NAME', 'env_name')
 param location = readEnvironmentVariable('AZURE_LOCATION', 'location')
 param principalId = readEnvironmentVariable('AZURE_PRINCIPAL_ID', 'principal_id')
@@ -10,14 +11,14 @@ param useKeyVault = bool(readEnvironmentVariable('USE_KEY_VAULT', 'true'))
 param authType = readEnvironmentVariable('AZURE_AUTH_TYPE', 'keys')
 
 // Deploying using json will set this to "container".
-param hostingModel = readEnvironmentVariable('AZURE_APP_SERVICE_HOSTING_MODEL', 'code')
+param hostingModel = readEnvironmentVariable('AZURE_APP_SERVICE_HOSTING_MODEL', 'container') // 기본값 code에서 변경함
 
 // Feature flags
 param azureSearchUseIntegratedVectorization = bool(readEnvironmentVariable('AZURE_SEARCH_USE_INTEGRATED_VECTORIZATION', 'false'))
 param azureSearchUseSemanticSearch = bool(readEnvironmentVariable('AZURE_SEARCH_USE_SEMANTIC_SEARCH', 'false'))
-param orchestrationStrategy = readEnvironmentVariable('ORCHESTRATION_STRATEGY', 'openai_function')
+param orchestrationStrategy = readEnvironmentVariable('ORCHESTRATION_STRATEGY', 'openai_function') // 기본값 openai_function에서 변경함
 param logLevel = readEnvironmentVariable('LOGLEVEL', 'INFO')
-param recognizedLanguages = readEnvironmentVariable('AZURE_SPEECH_RECOGNIZER_LANGUAGES', 'en-US,fr-FR,de-DE,it-IT')
+param recognizedLanguages = readEnvironmentVariable('AZURE_SPEECH_RECOGNIZER_LANGUAGES', 'en-US,fr-FR,de-DE,it-IT,ko-KR')
 param conversationFlow = readEnvironmentVariable('CONVERSATION_FLOW', 'custom')
 
 //Azure Search
@@ -63,7 +64,7 @@ param computerVisionVectorizeImageModelVersion = readEnvironmentVariable('AZURE_
 
 // We need the resourceToken to be unique for each deployment (copied from the main.bicep)
 var subscriptionId = readEnvironmentVariable('AZURE_SUBSCRIPTION_ID', 'subscription_id')
-param resourceToken = toLower(uniqueString(subscriptionId, environmentName, location))
+param resourceToken = toLower(uniqueString(subscriptionId, appName, environmentName, location))
 
 
 // Retrieve the Search Name from the Search Endpoint which will be in the format
@@ -79,3 +80,26 @@ param azureAISearchName = searchServiceName == '' ? 'search-${resourceToken}' : 
 param azureSearchIndex = readEnvironmentVariable('AZURE_SEARCH_INDEX', 'index-${resourceToken}')
 param azureOpenAIResourceName = readEnvironmentVariable('AZURE_OPENAI_RESOURCE', 'openai-${resourceToken}')
 param storageAccountName = readEnvironmentVariable('AZURE_BLOB_ACCOUNT_NAME', 'str${resourceToken}')
+
+param allowedIpRules = [
+  {
+    value: '165.85.00.00/16'
+    action: 'Allow'
+  }
+  {
+    value: '221.167.00.00/16'
+    action: 'Allow'
+  }
+  {
+    value: '147.6.00.00/16'
+    action: 'Allow'
+  }
+  {
+    value: '221.221.00.00/16'
+    action: 'Allow'
+  }
+]
+
+param frontendDockerImage = 'jinkookchoi/rag-webapp'
+param adminDockerImage = 'jinkookchoi/rag-adminwebapp'
+param backendDockerImage = 'jinkookchoi/rag-backend'

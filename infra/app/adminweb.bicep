@@ -30,6 +30,9 @@ param dockerFullImageName string = ''
 param useDocker bool = dockerFullImageName != ''
 param databaseType string = 'CosmosDB' // 'CosmosDB' or 'PostgreSQL'
 
+param virtualNetworkName string = ''
+param subnetNetworkName string = ''
+
 module adminweb '../core/host/appservice.bicep' = {
   name: '${name}-app-module'
   params: {
@@ -46,6 +49,8 @@ module adminweb '../core/host/appservice.bicep' = {
     applicationInsightsName: applicationInsightsName
     appServicePlanId: appServicePlanId
     managedIdentity: databaseType == 'PostgreSQL' || !empty(keyVaultName)
+    virtualNetworkName: virtualNetworkName
+    subnetNetworkName: subnetNetworkName
     appSettings: union(appSettings, {
       AZURE_AUTH_TYPE: authType
       USE_KEY_VAULT: useKeyVault ? useKeyVault : ''

@@ -9,6 +9,9 @@ param appServicePlanId string
 param keyVaultName string = ''
 param managedIdentity bool = !empty(keyVaultName)
 
+param virtualNetworkName string = ''
+param subnetNetworkName string = ''
+
 // Runtime Properties
 @allowed([
   'dotnet'
@@ -52,6 +55,9 @@ resource appService 'Microsoft.Web/sites@2022-03-01' = {
   tags: tags
   kind: kind
   properties: {
+    virtualNetworkSubnetId: subnetNetworkName == ''
+      ? null
+      : resourceId('Microsoft.Network/virtualNetworks/subnets', virtualNetworkName, subnetNetworkName)
     serverFarmId: appServicePlanId
     siteConfig: {
       linuxFxVersion: linuxFxVersion
@@ -103,6 +109,10 @@ module configAppSettings 'appservice-appsettings.bicep' = {
         AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
         SCM_DO_BUILD_DURING_DEPLOYMENT: string(scmDoBuildDuringDeployment)
         ENABLE_ORYX_BUILD: string(enableOryxBuild)
+
+        // admin 화면의 설정 내용을 blob storage에 저장/로딩하도록 하는 옵션을 활성화
+        // web, admin, function에 공통적으로 기본 제공하는것으로 appservice.bicep에 추가하기로 함
+        LOAD_CONFIG_FROM_BLOB_STORAGE: true
       },
       runtimeName == 'python' && appCommandLine == '' ? { PYTHON_ENABLE_GUNICORN_MULTIWORKERS: 'true' } : {},
       !empty(applicationInsightsName)

@@ -13,6 +13,10 @@ from azure.storage.queue import QueueClient, BinaryBase64EncodePolicy
 import chardet
 from .env_helper import EnvHelper
 from azure.identity import DefaultAzureCredential
+import logging 
+
+
+logger = logging.getLogger(__name__)
 
 
 def connection_string(account_name: str, account_key: str):
@@ -252,6 +256,8 @@ class AzureBlobStorageClient:
 
     def get_blob_sas(self, file_name):
         # Generate a SAS URL to the blob and return it
+        logger.info(f"file_name: {file_name}")
+         
         return (
             f"{self.endpoint}{self.container_name}/{file_name}"
             + "?"

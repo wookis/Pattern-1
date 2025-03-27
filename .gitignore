@@ -429,3 +429,5 @@ tests/integration/ui/cypress/screenshots/
 .idea/
 Pipfile
 Pipfile.lock
+
+.envrc

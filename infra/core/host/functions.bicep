@@ -54,6 +54,9 @@ param dockerFullImageName string = ''
 param useDocker bool = dockerFullImageName != ''
 param enableOryxBuild bool = useDocker ? false : contains(kind, 'linux')
 
+param virtualNetworkName string = ''
+param subnetNetworkName string = ''
+
 module functions 'appservice.bicep' = {
   name: '${name}-functions'
   params: {
@@ -92,17 +95,23 @@ module functions 'appservice.bicep' = {
     scmDoBuildDuringDeployment: useDocker ? false : true
     use32BitWorkerProcess: use32BitWorkerProcess
     dockerFullImageName: dockerFullImageName
+    virtualNetworkName: virtualNetworkName
+    subnetNetworkName: subnetNetworkName
   }
 }
 
-module storageBlobRoleFunction '../security/role.bicep' = {
-  name: 'storage-blob-role-function'
-  params: {
-    principalId: functions.outputs.identityPrincipalId
-    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: 'ServicePrincipal'
-  }
-}
+// ERROR: deployment failed: error deploying infrastructure: deploying to subscription:
+// Deployment Error Details:
+// InvalidTemplateDeployment: The template deployment failed with error: 'Authorization failed for template resource '2b7be9db-3cf7-5ce1-acd5-9be163543693' of type 'Microsoft.Authorization/roleAssignments'. The client 'jk.choi@kt.com' with object id 'ccb4c399-dfcb-4e89-8bd0-14039a0cf0ca' does not have permission to perform action 'Microsoft.Authorization/roleAssignments/write' at scope '/subscriptions/86dad09e-b801-4d7e-80cf-9c2bbee12554/resourceGroups/rg-az01-co001501-sbox-app-50-dev/providers/Microsoft.Authorization/roleAssignments/2b7be9db-3cf7-5ce1-acd5-9be163543693'.'.
+// TraceID: 588d3fcb30ca23a294c3b5c507ab8cce
+// module storageBlobRoleFunction '../security/role.bicep' = {
+//   name: 'storage-blob-role-function'
+//   params: {
+//     principalId: functions.outputs.identityPrincipalId
+//     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 resource storage 'Microsoft.Storage/storageAccounts@2021-09-01' existing = {
   name: storageAccountName

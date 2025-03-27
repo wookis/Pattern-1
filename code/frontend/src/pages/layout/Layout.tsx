@@ -21,7 +21,7 @@ export type LayoutProps = {
   showHistoryPanel: boolean;
 
 };
-const Layout = ({ children,toggleSpinner, ...props }: LayoutProps) => {
+const Layout = ({ children, toggleSpinner, ...props }: LayoutProps) => {
   const { showHistoryPanel, showHistoryBtn, onSetShowHistoryPanel } = props;
   const [isSharePanelOpen, setIsSharePanelOpen] = useState<boolean>(false);
   const [copyClicked, setCopyClicked] = useState<boolean>(false);
@@ -53,6 +53,9 @@ const Layout = ({ children,toggleSpinner, ...props }: LayoutProps) => {
 
   const getUserInfoList = async () => {
     const userInfoList = await getUserInfo();
+    setShowAuthMessage(false);
+    return
+
     if (
       userInfoList.length === 0 &&
       window.location.hostname !== "localhost" &&

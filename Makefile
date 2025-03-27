@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+export LC_ALL=C
 
 .PHONY: help
 .DEFAULT_GOAL := help
@@ -53,6 +54,7 @@ uitest: ## 🧪 Run the ui tests in headless mode
 docker-compose-up: ## 🐳 Run the docker-compose file
 	@cd docker && AZD_ENV_FILE=$(AZURE_ENV_FILE) docker-compose up
 
+# Entra ID 확인 필요하나,  접근 권한 없음 
 azd-login: ## 🔑 Login to Azure with azd and a SPN
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd auth login --client-id ${AZURE_CLIENT_ID} --client-secret ${AZURE_CLIENT_SECRET} --tenant-id ${AZURE_TENANT_ID}
@@ -69,3 +71,20 @@ deploy: azd-login ## 🚀 Deploy everything to Azure
 destroy: azd-login ## 🧨 Destroy everything in Azure
 	@echo -e "\e[34m$@\e[0m" || true
 	@azd down --force --purge --no-prompt
+
+
+# 동작 안함
+# make provision-container AZURE_ENV_NAME=prod APP_NAME=mycustomapp
+# provision-container: ## 🚀 Deploy apps with container to Azure
+# 	@echo -e "\e[34m$@\e[0m" || true
+# 	@export AZURE_ENV_NAME=${AZURE_ENV_NAME}
+# 	@[ -z "$(AZURE_ENV_NAME)" ] && export AZURE_ENV_NAME="dev" || true
+# 	@[ -z "$(APP_NAME)" ] && export APP_NAME=app-$(tr -dc 'a-z0-9' < /dev/urandom | fold -w 4 | head -n 1) || true
+# 	@echo "🔹 Using AZURE_ENV_NAME=$(AZURE_ENV_NAME)"
+# 	@echo "🔹 Using APP_NAME=$(APP_NAME)"
+# 	@azd env new $(AZURE_ENV_NAME)
+# 	@azd env set APP_NAME $(APP_NAME)
+# 	@azd provision
+# 	@chmod +x ./scripts/deploy_function_keys.sh
+# 	@WAIT_TIME=240 ./scripts/deploy_function_keys.sh
+#

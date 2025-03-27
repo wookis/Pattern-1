@@ -15,7 +15,7 @@ param storageAccountKeyName string = 'AZURE-STORAGE-ACCOUNT-KEY'
 param openAIKeyName string = 'AZURE-OPENAI-API-KEY'
 param searchKeyName string = 'AZURE-SEARCH-KEY'
 param formRecognizerKeyName string = 'AZURE-FORM-RECOGNIZER-KEY'
-param contentSafetyKeyName string = 'AZURE-CONTENT-SAFETY-KEY'
+// param contentSafetyKeyName string = 'AZURE-CONTENT-SAFETY-KEY'
 param speechKeyName string = 'AZURE-SPEECH-KEY'
 param computerVisionKeyName string = 'AZURE-COMPUTER-VISION-KEY'
 param cosmosAccountKeyName string = 'AZURE-COSMOSDB-ACCOUNT-KEY'
@@ -65,16 +65,16 @@ resource formRecognizerKeySecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' 
   }
 }
 
-resource contentSafetyKeySecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
-  parent: keyVault
-  name: contentSafetyKeyName
-  properties: {
-    value: listKeys(
-      resourceId(subscription().subscriptionId, rgName, 'Microsoft.CognitiveServices/accounts', contentSafetyName),
-      '2023-05-01'
-    ).key1
-  }
-}
+// resource contentSafetyKeySecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+//   parent: keyVault
+//   name: contentSafetyKeyName
+//   properties: {
+//     value: listKeys(
+//       resourceId(subscription().subscriptionId, rgName, 'Microsoft.CognitiveServices/accounts', contentSafetyName),
+//       '2023-05-01'
+//     ).key1
+//   }
+// }
 
 resource speechKeySecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
   parent: keyVault
@@ -133,7 +133,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2022-07-01' existing = {
   name: keyVaultName
 }
 
-output CONTENT_SAFETY_KEY_NAME string = contentSafetyKeySecret.name
+// output CONTENT_SAFETY_KEY_NAME string = contentSafetyKeySecret.name
 output FORM_RECOGNIZER_KEY_NAME string = formRecognizerKeySecret.name
 output SEARCH_KEY_NAME string = azureAISearchName != '' ? searchKeySecret.name : ''
 output OPENAI_KEY_NAME string = openAIKeySecret.name

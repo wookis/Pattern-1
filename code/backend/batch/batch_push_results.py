@@ -3,6 +3,7 @@ import logging
 import json
 from urllib.parse import urlparse
 import azure.functions as func
+import tempfile
 
 from utilities.helpers.azure_blob_storage_client import AzureBlobStorageClient
 from utilities.helpers.env_helper import EnvHelper
@@ -54,8 +55,23 @@ def _process_document_created_event(message_body) -> None:
     file_name = _get_file_name_from_message(message_body)
     file_sas = blob_client.get_blob_sas(file_name)
 
-    embedder = EmbedderFactory.create(env_helper)
-    embedder.embed_file(file_sas, file_name)
+    # ERROR. InvalidManagedIdentity
+    # The managed identity configuration is invalid: Managed identity is not enabled for the current resource.
+    # blob 데이터를 임시 폴더에 다운로드 후 임베딩하도록 수정
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file_path = os.path.join(temp_dir, file_name)
+
+        try:
+            with open(temp_file_path, "wb") as temp_file:
+                temp_file.write(blob_client.download_file(file_name))
+
+            embedder = EmbedderFactory.create(env_helper)
+            embedder.embed_file(temp_file_path, file_name)
+
+        finally:
+            # 파일 삭제 보장
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
 
 
 def _process_document_deleted_event(message_body) -> None:

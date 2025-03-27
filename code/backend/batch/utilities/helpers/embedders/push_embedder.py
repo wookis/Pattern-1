@@ -59,6 +59,7 @@ class PushEmbedder(EmbedderBase):
         self, source_url: str, file_extension: str, embedding_config: EmbeddingConfig
     ):
         logger.info(f"Processing embedding for file extension: {file_extension}")
+        logger.info(f"source_url: {source_url}")
         documents_to_upload: List[SourceDocument] = []
         if (
             embedding_config.use_advanced_image_processing

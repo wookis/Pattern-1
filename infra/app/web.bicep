@@ -34,6 +34,9 @@ param healthCheckPath string = ''
 param databaseType string = 'CosmosDB' // 'CosmosDB' or 'PostgreSQL'
 param cosmosDBKeyName string = ''
 
+param virtualNetworkName string = ''
+param subnetNetworkName string = ''
+
 // Database-specific settings
 var databaseSettings = databaseType == 'CosmosDB'
   ? {
@@ -61,6 +64,8 @@ module web '../core/host/appservice.bicep' = {
     appCommandLine: useDocker ? '' : appCommandLine
     applicationInsightsName: applicationInsightsName
     appServicePlanId: appServicePlanId
+    virtualNetworkName: virtualNetworkName
+    subnetNetworkName: subnetNetworkName
     appSettings: union(
       appSettings,
       union(databaseSettings, {

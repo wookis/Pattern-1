@@ -1,14 +1,19 @@
 targetScope = 'subscription'
 
+@minLength(3)
+@maxLength(20)
+@description('Name of the the application.')
+param appName string // ref. azd env set APP_NAME app-08
+
 @minLength(1)
 @maxLength(20)
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
 param environmentName string
 
-param resourceToken string = toLower(uniqueString(subscription().id, environmentName, location))
+param resourceToken string = toLower(uniqueString(subscription().id, appName, environmentName, location))
 
 @description('Location for all resources.')
-param location string
+param location string = 'Korea Central'
 
 @description('Name of App Service plan')
 param hostingPlanName string = 'hosting-plan-${resourceToken}'
@@ -27,8 +32,9 @@ param hostingPlanName string = 'hosting-plan-${resourceToken}'
   'P2'
   'P3'
   'P4'
+  'P1v3'
 ])
-param hostingPlanSku string = 'B3'
+param hostingPlanSku string = 'P1v3'
 
 @description('The sku tier for the App Service plan')
 @allowed([
@@ -40,14 +46,14 @@ param hostingPlanSku string = 'B3'
   'PremiumV2'
   'PremiumV3'
 ])
-param skuTier string = 'Basic'
+param skuTier string = 'PremiumV3'
 
 @description('The type of database to deploy (cosmos or postgres)')
 @allowed([
   'PostgreSQL'
   'CosmosDB'
 ])
-param databaseType string = 'PostgreSQL'
+param databaseType string = 'CosmosDB' // 기본값 변경 'PostgreSQL'
 
 @description('Azure Cosmos DB Account Name')
 param azureCosmosDBAccountName string = 'cosmos-${resourceToken}'
@@ -267,8 +273,8 @@ param functionName string = 'backend-${resourceToken}'
 @description('Azure Form Recognizer Name')
 param formRecognizerName string = 'formrecog-${resourceToken}'
 
-@description('Azure Content Safety Name')
-param contentSafetyName string = 'contentsafety-${resourceToken}'
+// @description('Azure Content Safety Name')
+// param contentSafetyName string = 'contentsafety-${resourceToken}'
 
 @description('Azure Speech Service Name')
 param speechServiceName string = 'speech-${resourceToken}'
@@ -284,7 +290,7 @@ param searchTag string = 'chatwithyourdata-sa'
   'rbac'
   'keys'
 ])
-param authType string = 'rbac'
+param authType string = 'keys' // 'rbac'
 
 @description('Whether to use Key Vault to store secrets (best when using keys). If using RBAC, then please set this to false.')
 param useKeyVault bool = authType == 'rbac' ? false : true
@@ -293,7 +299,7 @@ param useKeyVault bool = authType == 'rbac' ? false : true
 param principalId string = ''
 
 @description('Hosting model for the web apps. This value is fixed as "container", which uses prebuilt containers for faster deployment.')
-param hostingModel string = 'container'
+param hostingModel string = 'container' // container, code
 
 @allowed([
   'CRITICAL'
@@ -302,25 +308,62 @@ param hostingModel string = 'container'
   'INFO'
   'DEBUG'
 ])
-param logLevel string = 'INFO'
+param logLevel string = 'DEBUG'
 
 @description('List of comma-separated languages to recognize from the speech input. Supported languages are listed here: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=stt#supported-languages')
-param recognizedLanguages string = 'en-US,fr-FR,de-DE,it-IT'
+param recognizedLanguages string = 'en-US,fr-FR,de-DE,it-IT,ko-KR'
 
 @description('Azure Machine Learning Name')
 param azureMachineLearningName string = 'aml-${resourceToken}'
+
+// Cognitive Services, Storage Account 등에 대한 개발 PC에서의 접근을 위한 규칙 설정
+// 기본적으로 위의 서비스는 Deny로 설정하지만, 아래 룰에 적용된 IP의 경우 접근 가능하도록 함
+@description('Allowd IP Rules List for Azure Service')
+param allowedIpRules array = []
+
+@description('Frontend and API Server Docker Image. You can set your own docker image')
+param frontendDockerImage string = 'jinkookchoi/rag-webapp'
+
+@description('Admin Docker Image. You can set your own docker image')
+param adminDockerImage string = 'jinkookchoi/rag-adminwebapp'
+
+@description('Function Backend App Docker Image. You cant set your own docker image')
+param backendDockerImage string = 'jinkookchoi/rag-backend'
+
+@description('Azure Virtual Network Name')
+param azureVirtualNetworkName string = 'vnet-${resourceToken}'
+
+@description('Azure Sunbet Name for App Hosting')
+param hostSubnetName string = 'subnet-host-${resourceToken}'
+
+@description('Azure Sunbet Name for Pviate endpoint')
+param endpointSubnetName string = 'subnet-endpoint-${resourceToken}'
+
+@description('Virtual Network IP Address Prefix')
+param vnetAddressPrefix string = '10.10.0.0/16'
+
+@description('Host Subnet IP Address Prefix')
+param hostSubnetAddressPrefix string = '10.10.1.0/24'
+
+@description('Private Endpoint Subnet IP Address Prefix')
+param endpointSubnetAddressPrefix string = '10.10.2.0/24'
 
 var blobContainerName = 'documents'
 var queueName = 'doc-processing'
 var clientKey = '${uniqueString(guid(subscription().id, deployment().name))}${newGuidString}'
 var eventGridSystemTopicName = 'doc-processing'
-var tags = { 'azd-env-name': environmentName }
-var rgName = 'rg-${environmentName}'
+
+var subscriptionId = subscription().displayName
+var splitArray = split(subscriptionId, '-') // 구독명 sub-xxxx-xxxxxxxx-sbox-xxxx-89에서
+var extractedString = '${splitArray[1]}-${splitArray[2]}-${splitArray[3]}' // rg 네이밍 규칙에 필요한 요소 추출
+
+var tags = { 'azd-env-name': environmentName, 'azd-app-name': appName } // 기본값 var tags = { 'azd-env-name': environmentName }
+var rgName = 'rg-${extractedString}-${appName}-${environmentName}' // rg 명칭 변경. 기본값 var rgName = 'rg-${environmentName}'
 var keyVaultName = 'kv-${resourceToken}'
 var baseUrl = 'https://raw.githubusercontent.com/Azure-Samples/chat-with-your-data-solution-accelerator/main/'
 
-var appversion = 'latest' // Update GIT deployment branch
-var registryName = 'cwydcontainerreg' // Update Registry name
+// var appversion = 'latest' // Update GIT deployment branch
+// var registryName = 'cwydcontainerreg' // Update Registry name
 
 var openAIFunctionsSystemPrompt = '''You help employees to navigate only private information sources.
     You must prioritize the function call over your general knowledge for any question by calling the search_documents function.
@@ -445,13 +488,15 @@ module openai 'core/ai/cognitiveservices.bicep' = {
   scope: rg
   params: {
     name: azureOpenAIResourceName
-    location: location
+    // koreacentral에서 embedding 모델 배포 안됨. 임시로 eastus에 배포해서 사용
+    location: 'eastus' // location
     tags: tags
     sku: {
       name: azureOpenAISkuName
     }
     managedIdentity: authType == 'rbac'
     deployments: openAiDeployments
+    allowedIpRules: allowedIpRules
   }
 }
 
@@ -466,6 +511,7 @@ module computerVision 'core/ai/cognitiveservices.bicep' = if (useAdvancedImagePr
     sku: {
       name: computerVisionSkuName
     }
+    allowedIpRules: allowedIpRules
   }
 }
 
@@ -523,6 +569,7 @@ module speechService 'core/ai/cognitiveservices.bicep' = {
       name: 'S0'
     }
     kind: 'SpeechServices'
+    allowedIpRules: allowedIpRules
   }
 }
 
@@ -535,7 +582,7 @@ module storekeys './app/storekeys.bicep' = if (useKeyVault) {
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechServiceName
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
     cosmosAccountName: databaseType == 'CosmosDB' ? cosmosDBModule.outputs.cosmosOutput.cosmosAccountName : ''
@@ -571,16 +618,26 @@ module search './core/search/search-services.bicep' = if (databaseType == 'Cosmo
   }
 }
 
+var isPremiumV3 = (skuTier == 'PremiumV3') && (hostingPlanSku == 'P1v3')
+
 module hostingplan './core/host/appserviceplan.bicep' = {
   name: hostingPlanName
   scope: rg
   params: {
     name: hostingPlanName
     location: location
-    sku: {
-      name: hostingPlanSku
-      tier: skuTier
-    }
+    sku: isPremiumV3
+      ? {
+          name: hostingPlanSku
+          tier: skuTier
+          size: 'P1v3'
+          family: 'Pv3'
+          capacity: 1
+        }
+      : {
+          name: hostingPlanSku
+          tier: skuTier
+        }
     reserved: true
     tags: { CostControl: 'Ignore' }
   }
@@ -602,7 +659,7 @@ module web './app/web.bicep' = if (hostingModel == 'code') {
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
 
@@ -614,7 +671,7 @@ module web './app/web.bicep' = if (hostingModel == 'code') {
     storageAccountKeyName: useKeyVault ? storekeys.outputs.STORAGE_ACCOUNT_KEY_NAME : ''
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
 
@@ -624,6 +681,10 @@ module web './app/web.bicep' = if (hostingModel == 'code') {
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
 
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
+
     appSettings: union(
       {
         AZURE_BLOB_ACCOUNT_NAME: storageAccountName
@@ -632,7 +693,7 @@ module web './app/web.bicep' = if (hostingModel == 'code') {
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_RESOURCE: azureOpenAIResourceName
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
@@ -706,7 +767,8 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
     name: '${websiteName}-docker'
     location: location
     tags: union(tags, { 'azd-service-name': 'web-docker' })
-    dockerFullImageName: '${registryName}.azurecr.io/rag-webapp:${appversion}'
+    // dockerFullImageName: '${registryName}.azurecr.io/rag-webapp:${appversion}'
+    dockerFullImageName: frontendDockerImage
     appServicePlanId: hostingplan.outputs.name
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     healthCheckPath: '/api/health'
@@ -714,7 +776,7 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
 
@@ -727,7 +789,7 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
 
     // Conditionally set database key names
@@ -735,6 +797,10 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
     useKeyVault: useKeyVault
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
+
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
 
     appSettings: union(
       {
@@ -744,7 +810,7 @@ module web_docker './app/web.bicep' = if (hostingModel == 'container') {
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_RESOURCE: azureOpenAIResourceName
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
@@ -826,7 +892,7 @@ module adminweb './app/adminweb.bicep' = if (hostingModel == 'code') {
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
     openAIKeyName: useKeyVault ? storekeys.outputs.OPENAI_KEY_NAME : ''
@@ -834,12 +900,17 @@ module adminweb './app/adminweb.bicep' = if (hostingModel == 'code') {
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
     useKeyVault: useKeyVault
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
     databaseType: databaseType
+
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
+
     appSettings: union(
       {
         AZURE_BLOB_ACCOUNT_NAME: storageAccountName
@@ -848,7 +919,7 @@ module adminweb './app/adminweb.bicep' = if (hostingModel == 'code') {
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_RESOURCE: azureOpenAIResourceName
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
@@ -916,27 +987,33 @@ module adminweb_docker './app/adminweb.bicep' = if (hostingModel == 'container')
     name: '${adminWebsiteName}-docker'
     location: location
     tags: union(tags, { 'azd-service-name': 'adminweb-docker' })
-    dockerFullImageName: '${registryName}.azurecr.io/rag-adminwebapp:${appversion}'
+    // dockerFullImageName: '${registryName}.azurecr.io/rag-adminwebapp:${appversion}'
+    dockerFullImageName: adminDockerImage
     appServicePlanId: hostingplan.outputs.name
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     azureOpenAIName: openai.outputs.name
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
     openAIKeyName: useKeyVault ? storekeys.outputs.OPENAI_KEY_NAME : ''
     storageAccountKeyName: useKeyVault ? storekeys.outputs.STORAGE_ACCOUNT_KEY_NAME : ''
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
     useKeyVault: useKeyVault
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
     databaseType: databaseType
+
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
+
     appSettings: union(
       {
         AZURE_BLOB_ACCOUNT_NAME: storageAccountName
@@ -945,7 +1022,7 @@ module adminweb_docker './app/adminweb.bicep' = if (hostingModel == 'container')
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_RESOURCE: azureOpenAIResourceName
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
@@ -1055,7 +1132,7 @@ module function './app/function.bicep' = if (hostingModel == 'code') {
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
     clientKey: clientKey
@@ -1063,13 +1140,18 @@ module function './app/function.bicep' = if (hostingModel == 'code') {
     storageAccountKeyName: useKeyVault ? storekeys.outputs.STORAGE_ACCOUNT_KEY_NAME : ''
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
     useKeyVault: useKeyVault
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
     databaseType: databaseType
+
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
+
     appSettings: union(
       {
         AZURE_BLOB_ACCOUNT_NAME: storageAccountName
@@ -1078,7 +1160,7 @@ module function './app/function.bicep' = if (hostingModel == 'code') {
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
         AZURE_OPENAI_MODEL_VERSION: azureOpenAIModelVersion
@@ -1131,14 +1213,15 @@ module function_docker './app/function.bicep' = if (hostingModel == 'container')
     name: '${functionName}-docker'
     location: location
     tags: union(tags, { 'azd-service-name': 'function-docker' })
-    dockerFullImageName: '${registryName}.azurecr.io/rag-backend:${appversion}'
+    // dockerFullImageName: '${registryName}.azurecr.io/rag-backend:${appversion}'
+    dockerFullImageName: backendDockerImage
     appServicePlanId: hostingplan.outputs.name
     applicationInsightsName: monitoring.outputs.applicationInsightsName
     azureOpenAIName: openai.outputs.name
     azureAISearchName: databaseType == 'CosmosDB' ? search.outputs.name : ''
     storageAccountName: storage.outputs.name
     formRecognizerName: formrecognizer.outputs.name
-    contentSafetyName: contentsafety.outputs.name
+    // contentSafetyName: contentsafety.outputs.name
     speechServiceName: speechService.outputs.name
     computerVisionName: useAdvancedImageProcessing ? computerVision.outputs.name : ''
     clientKey: clientKey
@@ -1146,13 +1229,18 @@ module function_docker './app/function.bicep' = if (hostingModel == 'container')
     storageAccountKeyName: useKeyVault ? storekeys.outputs.STORAGE_ACCOUNT_KEY_NAME : ''
     formRecognizerKeyName: useKeyVault ? storekeys.outputs.FORM_RECOGNIZER_KEY_NAME : ''
     searchKeyName: useKeyVault && databaseType == 'CosmosDB' ? storekeys.outputs.SEARCH_KEY_NAME : ''
-    contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+    // contentSafetyKeyName: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
     speechKeyName: useKeyVault ? storekeys.outputs.SPEECH_KEY_NAME : ''
     computerVisionKeyName: useKeyVault ? storekeys.outputs.COMPUTER_VISION_KEY_NAME : ''
     useKeyVault: useKeyVault
     keyVaultName: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
     authType: authType
     databaseType: databaseType
+
+    // Outbound network binding
+    virtualNetworkName: network.outputs.name
+    subnetNetworkName: hostSubnetModule.outputs.subnetName
+
     appSettings: union(
       {
         AZURE_BLOB_ACCOUNT_NAME: storageAccountName
@@ -1161,7 +1249,7 @@ module function_docker './app/function.bicep' = if (hostingModel == 'container')
         AZURE_COMPUTER_VISION_ENDPOINT: useAdvancedImageProcessing ? computerVision.outputs.endpoint : ''
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_API_VERSION: computerVisionVectorizeImageApiVersion
         AZURE_COMPUTER_VISION_VECTORIZE_IMAGE_MODEL_VERSION: computerVisionVectorizeImageModelVersion
-        AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
+        // AZURE_CONTENT_SAFETY_ENDPOINT: contentsafety.outputs.endpoint
         AZURE_OPENAI_MODEL: azureOpenAIModel
         AZURE_OPENAI_MODEL_NAME: azureOpenAIModelName
         AZURE_OPENAI_MODEL_VERSION: azureOpenAIModelVersion
@@ -1215,19 +1303,21 @@ module formrecognizer 'core/ai/cognitiveservices.bicep' = {
     location: location
     tags: tags
     kind: 'FormRecognizer'
+    allowedIpRules: allowedIpRules
   }
 }
 
-module contentsafety 'core/ai/cognitiveservices.bicep' = {
-  name: contentSafetyName
-  scope: rg
-  params: {
-    name: contentSafetyName
-    location: location
-    tags: tags
-    kind: 'ContentSafety'
-  }
-}
+// module contentsafety 'core/ai/cognitiveservices.bicep' = {
+//   name: contentSafetyName
+//   scope: rg
+//   params: {
+//     name: contentSafetyName
+//     location: 'eastus' // location
+//     tags: tags
+//     kind: 'ContentSafety'
+//     allowedIpRules: allowedIpRules
+//   }
+// }
 
 module eventgrid 'app/eventgrid.bicep' = {
   name: eventGridSystemTopicName
@@ -1251,6 +1341,7 @@ module storage 'core/storage/storage-account.bicep' = {
     sku: {
       name: 'Standard_GRS'
     }
+    allowCrossTenantReplication: false
     deleteRetentionPolicy: azureSearchUseIntegratedVectorization
       ? {
           enabled: true
@@ -1275,6 +1366,151 @@ module storage 'core/storage/storage-account.bicep' = {
         name: 'doc-processing-poison'
       }
     ]
+    networkAcls: {
+      bypass: 'AzureServices'
+      virtualNetworkRules: []
+      ipRules: allowedIpRules
+      defaultAction: 'Deny'
+    }
+  }
+}
+
+module network './core/networking/vnet.bicep' = {
+  name: 'network'
+  scope: rg
+  params: {
+    name: azureVirtualNetworkName
+    location: location
+    addressPrefix: vnetAddressPrefix
+    tags: {}
+  }
+}
+
+module hostSubnetModule './core/networking/subnet.bicep' = {
+  name: hostSubnetName
+  scope: rg
+  params: {
+    vnetName: network.outputs.name
+    subnetName: hostSubnetName
+    addressPrefix: hostSubnetAddressPrefix
+    delegationService: 'Microsoft.Web/serverFarms'
+  }
+}
+
+module endpointSubnetModule './core/networking/subnet.bicep' = {
+  name: endpointSubnetName
+  scope: rg
+  params: {
+    vnetName: network.outputs.name
+    subnetName: endpointSubnetName
+    addressPrefix: endpointSubnetAddressPrefix
+    privateEndpointNetworkPolicies: 'Disabled'
+  }
+}
+
+// Cognitive Services, Storage Account, Cosmos DB 등에 대한 Private Enpoint 설정
+module openaiPrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'openaiPrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.CognitiveServices/accounts'
+    resourceName: openai.outputs.name
+    groupId: 'account'
+    prefix: 'openai-${resourceToken}'
+    privateDnsZoneName: 'privatelink.openai.azure.com'
+  }
+}
+
+module blobStoragePrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'blobStoragePrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.Storage/storageAccounts'
+    resourceName: storage.outputs.name
+    groupId: 'blob'
+    prefix: 'blob-${resourceToken}'
+    privateDnsZoneName: 'privatelink.blob.${environment().suffixes.storage}'
+  }
+}
+
+module queueStoragePrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'queueStoragePrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.Storage/storageAccounts'
+    resourceName: storage.outputs.name
+    groupId: 'queue'
+    prefix: 'queue-${resourceToken}'
+    privateDnsZoneName: 'privatelink.queue.${environment().suffixes.storage}'
+  }
+}
+
+module tableStoragePrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'tableStoragePrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.Storage/storageAccounts'
+    resourceName: storage.outputs.name
+    groupId: 'table'
+    prefix: 'table-${resourceToken}'
+    privateDnsZoneName: 'privatelink.table.${environment().suffixes.storage}'
+  }
+}
+
+module searchPrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'searchPrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.Search/searchServices'
+    resourceName: search.outputs.name
+    groupId: 'searchService'
+    prefix: 'search-${resourceToken}'
+    privateDnsZoneName: 'privatelink.search.windows.net'
+  }
+}
+
+module docIntelliPrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'docIntelliPrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.CognitiveServices/accounts'
+    resourceName: formrecognizer.outputs.name
+    groupId: 'account'
+    prefix: 'docIntelli-${resourceToken}'
+    privateDnsZoneName: 'privatelink.cognitiveservices.azure.com'
+  }
+}
+
+module cosmosdbPrivateEndpoint './core/networking/private-endpoint.bicep' = {
+  name: 'cosmosdbPrivateEndpoint'
+  scope: rg
+  params: {
+    location: location
+    vnetName: azureVirtualNetworkName
+    endpointSubnetId: endpointSubnetModule.outputs.subnetId
+    resourceType: 'Microsoft.DocumentDB/databaseAccounts'
+    resourceName: cosmosDBModule.outputs.cosmosOutput.cosmosAccountName
+    groupId: 'Sql'
+    prefix: 'cosmosdb-${resourceToken}'
+    privateDnsZoneName: 'privatelink.documents.azure.com'
   }
 }
 
@@ -1456,16 +1692,16 @@ var azureKeyvaultInfo = string({
   name: useKeyVault || authType == 'rbac' ? keyvault.outputs.name : ''
 })
 
-var azureContentSafetyInfo = string({
-  endpoint: contentsafety.outputs.endpoint
-  key: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
-})
+// var azureContentSafetyInfo = string({
+//   endpoint: contentsafety.outputs.endpoint
+//   key: useKeyVault ? storekeys.outputs.CONTENT_SAFETY_KEY_NAME : ''
+// })
 
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
 output AZURE_APP_SERVICE_HOSTING_MODEL string = hostingModel
 output AZURE_BLOB_STORAGE_INFO string = azureBlobStorageInfo
 output AZURE_COMPUTER_VISION_INFO string = azureComputerVisionInfo
-output AZURE_CONTENT_SAFETY_INFO string = azureContentSafetyInfo
+// output AZURE_CONTENT_SAFETY_INFO string = azureContentSafetyInfo
 output AZURE_FORM_RECOGNIZER_INFO string = azureFormRecognizerInfo
 output AZURE_KEY_VAULT_INFO string = azureKeyvaultInfo
 output AZURE_LOCATION string = location
@@ -1499,3 +1735,8 @@ output AZURE_COSMOSDB_INFO string = azureCosmosDBInfo
 output AZURE_POSTGRESQL_INFO string = azurePostgresDBInfo
 output OPEN_AI_FUNCTIONS_SYSTEM_PROMPT string = openAIFunctionsSystemPrompt
 output SEMENTIC_KERNEL_SYSTEM_PROMPT string = semanticKernelSystemPrompt
+
+// output APP_NAME string = appName
+output BACKEND_URL string = 'https://${functionName}${hostingModel == 'container' ? '-docker' : ''}.azurewebsites.net'
+output FUNCTION_KEY string = clientKey
+output FUNCTION_APP_NAME string = '${functionName}${hostingModel == 'container' ? '-docker' : ''}'

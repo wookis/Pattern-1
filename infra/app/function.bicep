@@ -29,6 +29,9 @@ param authType string
 param dockerFullImageName string = ''
 param databaseType string
 
+param virtualNetworkName string = ''
+param subnetNetworkName string = ''
+
 module function '../core/host/functions.bicep' = {
   name: '${name}-app-module'
   params: {
@@ -44,6 +47,8 @@ module function '../core/host/functions.bicep' = {
     dockerFullImageName: dockerFullImageName
     useKeyVault: useKeyVault
     managedIdentity: databaseType == 'PostgreSQL' || !empty(keyVaultName)
+    virtualNetworkName: virtualNetworkName
+    subnetNetworkName: subnetNetworkName
     appSettings: union(appSettings, {
       WEBSITES_ENABLE_APP_SERVICE_STORAGE: 'false'
       AZURE_AUTH_TYPE: authType
@@ -131,32 +136,33 @@ module function '../core/host/functions.bicep' = {
   }
 }
 
-resource functionNameDefaultClientKey 'Microsoft.Web/sites/host/functionKeys@2018-11-01' = {
-  name: '${name}/default/clientKey'
-  properties: {
-    name: 'ClientKey'
-    value: clientKey
-  }
-  dependsOn: [
-    function
-    waitFunctionDeploymentSection
-  ]
-}
+// resource functionNameDefaultClientKey 'Microsoft.Web/sites/host/functionKeys@2018-11-01' = {
+//   name: '${name}/default/clientKey'
+//   properties: {
+//     name: 'ClientKey'
+//     value: clientKey
+//   }
+//   dependsOn: [
+//     function
+//     waitFunctionDeploymentSection
+//   ]
+// }
 
-resource waitFunctionDeploymentSection 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
-  kind: 'AzurePowerShell'
-  name: 'WaitFunctionDeploymentSection'
-  location: location
-  properties: {
-    azPowerShellVersion: '3.0'
-    scriptContent: 'start-sleep -Seconds 300'
-    cleanupPreference: 'Always'
-    retentionInterval: 'PT1H'
-  }
-  dependsOn: [
-    function
-  ]
-}
+// ERROR. deploymentScript에서 storage account 접근 안됨
+// resource waitFunctionDeploymentSection 'Microsoft.Resources/deploymentScripts@2020-10-01' = {
+//   kind: 'AzurePowerShell'
+//   name: 'WaitFunctionDeploymentSection'
+//   location: location
+//   properties: {
+//     azPowerShellVersion: '3.0'
+//     scriptContent: 'start-sleep -Seconds 300'
+//     cleanupPreference: 'Always'
+//     retentionInterval: 'PT1H'
+//   }
+//   dependsOn: [
+//     function
+//   ]
+// }
 
 // Cognitive Services User
 module openAIRoleFunction '../core/security/role.bicep' = if (authType == 'rbac') {
@@ -191,14 +197,18 @@ module searchRoleFunction '../core/security/role.bicep' = if (authType == 'rbac'
 }
 
 // Storage Blob Data Contributor
-module storageBlobRoleFunction '../core/security/role.bicep' = if (authType == 'rbac') {
-  name: 'storage-blob-role-function'
-  params: {
-    principalId: function.outputs.identityPrincipalId
-    roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-    principalType: 'ServicePrincipal'
-  }
-}
+// ERROR: deployment failed: error deploying infrastructure: deploying to subscription:
+// Deployment Error Details:
+// InvalidTemplateDeployment: The template deployment failed with error: 'Authorization failed for template resource '2b7be9db-3cf7-5ce1-acd5-9be163543693' of type 'Microsoft.Authorization/roleAssignments'. The client 'jk.choi@kt.com' with object id 'ccb4c399-dfcb-4e89-8bd0-14039a0cf0ca' does not have permission to perform action 'Microsoft.Authorization/roleAssignments/write' at scope '/subscriptions/86dad09e-b801-4d7e-80cf-9c2bbee12554/resourceGroups/rg-az01-co001501-sbox-app-50-dev/providers/Microsoft.Authorization/roleAssignments/2b7be9db-3cf7-5ce1-acd5-9be163543693'.'.
+// TraceID: 588d3fcb30ca23a294c3b5c507ab8cce
+// module storageBlobRoleFunction '../core/security/role.bicep' = if (authType == 'rbac') {
+//   name: 'storage-blob-role-function'
+//   params: {
+//     principalId: function.outputs.identityPrincipalId
+//     roleDefinitionId: 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
+//     principalType: 'ServicePrincipal'
+//   }
+// }
 
 // Storage Queue Data Contributor
 module storageQueueRoleFunction '../core/security/role.bicep' = if (authType == 'rbac') {
